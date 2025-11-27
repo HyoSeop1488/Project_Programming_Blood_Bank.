@@ -1,58 +1,35 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <algorithm>
-#include <fstream>
-#include <iomanip>
 #include <ctime>
+#include <algorithm>
 
 using namespace std;
 
-// ======================== CLASS DEFINITIONS ============================
+// ========================= STRUCT USER & HISTORY =============================
 
-class KantongDarah {
-public:
-    string id;
-    string golongan;
-    string rhesus;
-    string tanggalDonasi;
-    string tanggalExp;
-
-    KantongDarah(string _id, string _gol, string _rh, string _donasi, string _exp)
-        : id(_id), golongan(_gol), rhesus(_rh), tanggalDonasi(_donasi), tanggalExp(_exp) {}
+struct History {
+    string tempat;
+    string tanggalDonor;
+    string nextEligible; // tanggal boleh donor lagi (40 hari)
 };
 
-class Donor {
-public:
-    string id;
+struct User {
+    string email;
+    string password;
     string nama;
     int usia;
-    int berat;
     string golongan;
-    string riwayat;
+    string riwayatPenyakit;
 
-    Donor(string _id, string _nama, int _usia, int _berat, string _gol, string _riw)
-        : id(_id), nama(_nama), usia(_usia), berat(_berat), golongan(_gol), riwayat(_riw) {}
+    vector<History> riwayat;
 };
 
-class Pasien {
-public:
-    string id;
-    string nama;
-    string golongan;
-    int kebutuhan;
+// ========================= GLOBAL DATA =============================
+vector<User> users;
+User* currentUser = nullptr;
 
-    Pasien(string _id, string _nama, string _gol, int _keb)
-        : id(_id), nama(_nama), golongan(_gol), kebutuhan(_keb) {}
-};
-
-// ======================== GLOBAL DATA ============================
-
-vector<Donor> daftarDonor;
-vector<KantongDarah> stok;
-vector<string> logTransaksi;
-
-// ======================== UTIL FUNCTIONS ============================
+// ========================= UTIL FUNCTIONS =============================
 
 string today() {
     time_t t = time(0);
@@ -68,189 +45,197 @@ string addDays(string date, int days) {
     t.tm_year -= 1900;
     t.tm_mon -= 1;
 
-    time_t timeOrig = mktime(&t);
-    timeOrig += days * 24 * 3600;
+    time_t base = mktime(&t);
+    base += days * 24 * 3600;
 
-    tm *newTime = localtime(&timeOrig);
+    tm *newT = localtime(&base);
     char buf[20];
-    strftime(buf, 20, "%Y-%m-%d", newTime);
+    strftime(buf, 20, "%Y-%m-%d", newT);
     return string(buf);
 }
 
-bool compatible(string pasien, string donor) {
-    if (pasien == donor) return true;
-
-    if (pasien == "A+" && (donor == "A+" || donor == "A-" || donor == "O+" || donor == "O-")) return true;
-    if (pasien == "A-" && (donor == "A-" || donor == "O-")) return true;
-
-    if (pasien == "B+" && (donor == "B+" || donor == "B-" || donor == "O+" || donor == "O-")) return true;
-    if (pasien == "B-" && (donor == "B-" || donor == "O-")) return true;
-
-    if (pasien == "AB+" ) return true; 
-    if (pasien == "AB-" && (donor == "AB-" || donor == "A-" || donor == "B-" || donor == "O-")) return true;
-
-    if (pasien == "O+" && (donor == "O+" || donor == "O-")) return true;
-    if (pasien == "O-" && donor == "O-") return true;
-
-    return false;
+User* findUser(string email, string pass) {
+    for (auto &u : users)
+        if (u.email == email && u.password == pass)
+            return &u;
+    return nullptr;
 }
 
-string generateID(string gol, string rh, int urut) {
-    return gol + "_" + rh + "_" + to_string(urut);
+// ========================= SIGN UP =============================
+
+void signUp() {
+    cout << "\n=== SIGN UP ===\n";
+
+    User u;
+    cout << "Email: ";
+    cin >> u.email;
+    cout << "Password: ";
+    cin >> u.password;
+    cout << "Nama Lengkap: ";
+    cin.ignore();
+    getline(cin, u.nama);
+    cout << "Usia: ";
+    cin >> u.usia;
+    cout << "Golongan Darah (A+/O-/dst): ";
+    cin >> u.golongan;
+    cout << "Riwayat Penyakit (tulis '-' bila tidak ada): ";
+    cin.ignore();
+    getline(cin, u.riwayatPenyakit);
+
+    users.push_back(u);
+
+    cout << "Akun berhasil dibuat!\n";
 }
 
-// ======================== FITUR 1: DONASI ============================
+// ========================= LOGIN =============================
 
-void tambahDonasi() {
-    cout << "\n=== TRANSAKSI DONASI (BARANG MASUK) ===\n";
+void login() {
+    cout << "\n=== LOGIN ===\n";
 
-    cout << "Pilih Donor berdasarkan index:\n";
-    for (int i = 0; i < daftarDonor.size(); i++) {
-        cout << i << ". " << daftarDonor[i].nama
-             << " (" << daftarDonor[i].golongan << ")\n";
-    }
+    string email, pass;
+    cout << "Email: ";
+    cin >> email;
+    cout << "Password: ";
+    cin >> pass;
 
-    int idx;
-    cout << "Masukkan index donor: ";
-    cin >> idx;
-    if (idx < 0 || idx >= daftarDonor.size()) {
-        cout << "Index tidak valid!\n";
+    User* u = findUser(email, pass);
+    if (u == nullptr) {
+        cout << "Email atau password salah!\n";
         return;
     }
 
-    Donor d = daftarDonor[idx];
-
-    string gol = d.golongan.substr(0, d.golongan.size() - 1);
-    string rh = d.golongan.back() == '+' ? "POS" : "NEG";
-
-    int urut = stok.size() + 1;
-
-    string idkantong = generateID(gol, rh, urut);
-
-    string tDonasi = today();
-    string tExp = addDays(tDonasi, 35);
-
-    stok.push_back(KantongDarah(idkantong, gol, rh, tDonasi, tExp));
-
-    cout << "Donasi berhasil! ID Kantong: " << idkantong << endl;
-
-    logTransaksi.push_back("Donasi: " + idkantong + " oleh " + d.nama);
+    currentUser = u;
+    cout << "Login berhasil! Selamat datang, " << u->nama << "\n";
 }
 
-// ======================== FITUR 2: PERMINTAAN ============================
+// ========================= DAFTAR RS =============================
 
-void transfusi() {
-    cout << "\n=== TRANSAKSI TRANSFUSI (BARANG KELUAR) ===\n";
+void daftarRS() {
+    cout << "\n=== CARI RUMAH SAKIT ===\n";
+    vector<string> rs = {
+        "RSUD Sardjito",
+        "RS Panti Rapih",
+        "RS Bethesda"
+    };
 
-    string gol;
-    int jumlah;
+    for (int i = 0; i < rs.size(); i++)
+        cout << i+1 << ". " << rs[i] << endl;
 
-    cout << "Masukkan golongan darah pasien (misal A+): ";
-    cin >> gol;
-    cout << "Jumlah kebutuhan: ";
-    cin >> jumlah;
-
-    vector<int> kandidat;
-    for (int i = 0; i < stok.size(); i++) {
-        string donor = stok[i].golongan + (stok[i].rhesus == "POS" ? "+" : "-");
-        if (compatible(gol, donor)) {
-            kandidat.push_back(i);
-        }
-    }
-
-    if (kandidat.empty()) {
-        cout << "Tidak ada stok yang kompatibel!\n";
+    int pilih;
+    cout << "Pilih RS: ";
+    cin >> pilih;
+    if (pilih < 1 || pilih > rs.size()) {
+        cout << "Pilihan tidak valid!\n";
         return;
     }
 
-    sort(kandidat.begin(), kandidat.end(),
-         [&](int a, int b) { return stok[a].tanggalExp < stok[b].tanggalExp; });
+    string now = today();
+    string next = addDays(now, 40);
 
-    cout << "Kantong darah yang diambil:\n";
-    int taken = 0;
-    vector<int> toRemove;
+    currentUser->riwayat.push_back({rs[pilih-1], now, next});
 
-    for (int idx : kandidat) {
-        if (taken == jumlah) break;
-
-        cout << "- " << stok[idx].id << " (Exp: " << stok[idx].tanggalExp << ")\n";
-        logTransaksi.push_back("Transfusi: " + stok[idx].id);
-
-        toRemove.push_back(idx);
-        taken++;
-    }
-
-    if (taken < jumlah) {
-        cout << "Stok tidak mencukupi! Hanya mendapat " << taken << " dari " << jumlah << endl;
-    }
-
-    sort(toRemove.rbegin(), toRemove.rend());
-    for (int x : toRemove) stok.erase(stok.begin() + x);
+    cout << "Pendaftaran berhasil!\n";
+    cout << "Tanggal Donor: " << now << endl;
+    cout << "Boleh donor lagi mulai: " << next << endl;
 }
 
-// ======================== FILE HANDLING ============================
+// ========================= DAFTAR EVENT =============================
 
-void saveData() {
-    ofstream out("output.txt");
+void daftarEvent() {
+    cout << "\n=== EVENT DONOR DARAH ===\n";
+    vector<string> event = {
+        "Donor Darah Kampus UGM",
+        "Donor Darah SMAN 1",
+        "Donor Darah PMI Kota"
+    };
 
-    out << "=== STOK DARAH ===\n";
-    for (auto &k : stok) {
-        out << k.id << " " << k.golongan << " " << k.rhesus
-            << " " << k.tanggalDonasi << " " << k.tanggalExp << "\n";
+    for (int i = 0; i < event.size(); i++)
+        cout << i+1 << ". " << event[i] << endl;
+
+    int pilih;
+    cout << "Pilih Event: ";
+    cin >> pilih;
+
+    if (pilih < 1 || pilih > event.size()) {
+        cout << "Pilihan tidak valid!\n";
+        return;
     }
 
-    out << "\n=== LOG TRANSAKSI ===\n";
-    for (auto &l : logTransaksi) out << l << "\n";
+    string now = today();
+    string next = addDays(now, 40);
 
-    out.close();
-    cout << "Data berhasil disimpan ke output.txt!\n";
+    currentUser->riwayat.push_back({event[pilih-1], now, next});
+
+    cout << "Pendaftaran berhasil!\n";
+    cout << "Tanggal Donor: " << now << endl;
+    cout << "Boleh donor lagi mulai: " << next << endl;
 }
 
-// ======================== MENU ============================
+// ========================= HISTORY =============================
 
-void menu() {
+void lihatHistory() {
+    cout << "\n=== HISTORY DONOR ===\n";
+
+    if (currentUser->riwayat.empty()) {
+        cout << "Belum pernah donor.\n";
+        return;
+    }
+
+    for (auto &h : currentUser->riwayat) {
+        cout << "- " << h.tempat
+             << " | Donor: " << h.tanggalDonor
+             << " | Boleh donor lagi: " << h.nextEligible << endl;
+    }
+}
+
+// ========================= MENU REGISTERED =============================
+
+void menuRegistered() {
     int pilih;
     do {
-        cout << "\n=========== BLOOD BANK SYSTEM ===========\n";
-        cout << "1. Input Donor\n";
-        cout << "2. Transaksi Donasi (Barang Masuk)\n";
-        cout << "3. Transaksi Transfusi (Barang Keluar)\n";
-        cout << "4. Tampilkan Stok Darah\n";
-        cout << "5. Simpan Data ke File\n";
-        cout << "0. Keluar\n";
-        cout << "Pilih menu: ";
+        cout << "\n=== MENU UTAMA ===\n";
+        cout << "1. Cari RS (Daftar Donor)\n";
+        cout << "2. Event Donor Darah\n";
+        cout << "3. History Donor\n";
+        cout << "4. Logout\n";
+        cout << "Pilih: ";
         cin >> pilih;
 
-        if (pilih == 1) {
-            string id,nama, gol, riw;
-            int usia, berat;
-            cout << "ID Donor: "; cin >> id;
-            cout << "Nama: "; cin >> nama;
-            cout << "Usia: "; cin >> usia;
-            cout << "Berat Badan: "; cin >> berat;
-            cout << "Golongan Darah (A+/O-/dst): "; cin >> gol;
-            cout << "Riwayat Penyakit: "; cin >> riw;
-
-            daftarDonor.push_back(Donor(id,nama,usia,berat,gol,riw));
-        }
-        else if (pilih == 2) tambahDonasi();
-        else if (pilih == 3) transfusi();
+        if (pilih == 1) daftarRS();
+        else if (pilih == 2) daftarEvent();
+        else if (pilih == 3) lihatHistory();
         else if (pilih == 4) {
-            cout << "\n=== STOK SAAT INI ===\n";
-            for (auto &k : stok) {
-                cout << k.id << " | " << k.golongan << k.rhesus
-                    << " | Donasi: " << k.tanggalDonasi
-                    << " | Exp: " << k.tanggalExp << endl;
-            }
+            cout << "\nSehat selalu wahai pejuang darah!\n";
+            currentUser = nullptr;
         }
-        else if (pilih == 5) saveData();
-
-    } while (pilih != 0);
+    } while (pilih != 4);
 }
 
-// ======================== MAIN ============================
+// ========================= MAIN MENU =============================
 
 int main() {
-    menu();
+    int pilih;
+
+    while (true) {
+        cout << "\n=== APLIKASI DONOR DARAH ===\n";
+        cout << "1. Sign Up\n";
+        cout << "2. Login\n";
+        cout << "3. Keluar\n";
+        cout << "Pilih: ";
+        cin >> pilih;
+
+        if (pilih == 1) signUp();
+        else if (pilih == 2) {
+            login();
+            if (currentUser != nullptr) menuRegistered();
+        }
+        else if (pilih == 3) {
+            cout << "Program selesai. Terima kasih!\n";
+            break;
+        }
+        else
+            cout << "Pilihan tidak valid!\n";
+    }
+
     return 0;
 }
