@@ -6,7 +6,7 @@
 
 using namespace std;
 
-// ========================= STRUCT USER & HISTORY =============================
+//STRUCT USER & HISTORY
 
 struct History {
     string tempat;
@@ -25,12 +25,12 @@ struct User {
     vector<History> riwayat;
 };
 
-// ========================= GLOBAL DATA =============================
+// GLOBAL DATA 
 
 vector<User> users;
 User* currentUser = nullptr;
 
-// ========================= UTIL FUNCTIONS =============================
+// UTIL FUNCTIONS 
 
 string today() {
     time_t t = time(0);
@@ -62,10 +62,10 @@ User* findUser(string email, string pass) {
     return nullptr;
 }
 
-// ========================= SIGN UP =============================
+// FITUR 1 : SIGN UP 
 
 void signUp() {
-    cout << "\n=== SIGN UP ===\n";
+    cout << "\n### SIGN UP ###\n";
 
     User u;
     cout << "Email: ";
@@ -88,10 +88,10 @@ void signUp() {
     cout << "Akun berhasil dibuat!\n";
 }
 
-// ========================= LOGIN =============================
+// FITUR 2 : LOGIN 
 
 void login() {
-    cout << "\n=== LOGIN ===\n";
+    cout << "\n### LOGIN ###\n";
 
     string email, pass;
     cout << "Email: ";
@@ -109,13 +109,13 @@ void login() {
     cout << "Login berhasil! Selamat datang, " << u->nama << "\n";
 }
 
-// ========================= PROFILE =============================
+// FITUR 3: PROFILE
 
 void menuProfile() {
     int pilih;
 
     do {
-        cout << "\n=== PROFIL ===\n";
+        cout << "\n### PROFIL ###\n";
         cout << "Nama: " << currentUser->nama << endl;
         cout << "Usia: " << currentUser->usia << endl;
         cout << "Golongan Darah: " << currentUser->golongan << endl;
@@ -147,7 +147,7 @@ void menuProfile() {
     } while (pilih != 2);
 }
 
-// ========================= DAFTAR RS =============================
+// FITUR 4: DAFTAR RS 
 
 void daftarRSLangsung(string namaRS) {
     string now = today();
@@ -176,7 +176,7 @@ void cariRS() {
     int pilih;
 
     while (true) {
-        cout << "\n=== CARI RUMAH SAKIT ===\n";
+        cout << "\n### CARI RUMAH SAKIT ###\n";
         for (int i = 0; i < rs.size(); i++)
             cout << i+1 << ". " << rs[i] << endl;
         cout << "4. Kembali\n";
@@ -191,9 +191,9 @@ void cariRS() {
 
         int idx = pilih - 1;
 
-        cout << "\n=== " << rs[idx] << " ===\n";
+        cout << "\n### " << rs[idx] << " ###\n";
         cout << "1. Daftar Donor Sekarang\n";
-        cout << "2. Kontak Rumah Sakit (" << kontak[idx] << ")\n";
+        cout << "2. Kontak Rumah Sakit\n";
         cout << "3. Kembali\n";
         cout << "Pilih: ";
         int sub;
@@ -209,7 +209,7 @@ void cariRS() {
     }
 }
 
-// ========================= EVENT DONOR =============================
+// FITUR 5: EVENT DONOR 
 
 void daftarEventLangsung(string event) {
     string now = today();
@@ -238,7 +238,7 @@ void eventDonor() {
     int pilih;
 
     while (true) {
-        cout << "\n=== EVENT DONOR ===\n";
+        cout << "\n### EVENT DONOR ###\n";
         for (int i = 0; i < event.size(); i++)
             cout << i+1 << ". " << event[i] << endl;
         cout << "4. Kembali\n";
@@ -253,9 +253,9 @@ void eventDonor() {
 
         int idx = pilih - 1;
 
-        cout << "\n=== " << event[idx] << " ===\n";
+        cout << "\n### " << event[idx] << " ###\n";
         cout << "1. Daftar Donor Sekarang\n";
-        cout << "2. Kontak Panitia (" << kontak[idx] << ")\n";
+        cout << "2. Kontak Panitia \n";
         cout << "3. Kembali\n";
         cout << "Pilih: ";
         int sub;
@@ -271,32 +271,33 @@ void eventDonor() {
     }
 }
 
-// ========================= HISTORY =============================
+// FITUR 6: HISTORY
 
 void lihatHistory() {
-    cout << "\n=== HISTORY DONOR ===\n";
+    cout << "\n### HISTORY DONOR ###\n";
 
     if (currentUser->riwayat.empty()) {
-        cout << "Belum pernah donor.\n";
+        cout << "Anda belum pernah donor.\n";
         return;
     }
 
     for (auto &h : currentUser->riwayat) {
         cout << "- " << h.tempat
-             << " | Donor: " << h.tanggalDonor
-             << " | Boleh donor lagi: " << h.nextEligible << endl;
+             << " | Donor pada tanggal: " << h.tanggalDonor
+             << " | Boleh donor lagi tanggal: " << h.nextEligible << endl;
     }
 }
 
-// ========================= MENU REGISTERED =============================
+//  MENU REGISTERED
 
 void menuRegistered() {
     int pilih;
     do {
-        cout << "\n=== MENU UTAMA ===\n";
-        cout << "1. Profil\n";
+        cout << "\n### MENU UTAMA ###\n";
+        cout << "Apa yang ingin kamu lakukan hari ini?\n";
+        cout << "1. Lihat Profil\n";
         cout << "2. Cari RS (Daftar Donor)\n";
-        cout << "3. Event Donor\n";
+        cout << "3. Cari Event Donor\n";
         cout << "4. History Donor\n";
         cout << "5. Logout\n";
         cout << "Pilih: ";
@@ -313,13 +314,15 @@ void menuRegistered() {
     } while (pilih != 5);
 }
 
-// ========================= MAIN MENU =============================
+//  MAIN MENU
 
 int main() {
     int pilih;
 
     while (true) {
-        cout << "\n=== APLIKASI DONOR DARAH ===\n";
+        cout << "\nSELAMAT DATANG di APLIKASI DONOR DARAH\n";
+        cout << "\nSilakan Sign Up jika belum memiliki akun atau Login jika sudah memilki akun\n";
+        cout << "\n";
         cout << "1. Sign Up\n";
         cout << "2. Login\n";
         cout << "3. Keluar\n";
@@ -332,7 +335,7 @@ int main() {
             if (currentUser != nullptr) menuRegistered();
         }
         else if (pilih == 3) {
-            cout << "Program selesai. Terima kasih!\n";
+            cout << "Terima kasih sudah menggunakan aplikasi ini!!!\n";
             break;
         }
         else
