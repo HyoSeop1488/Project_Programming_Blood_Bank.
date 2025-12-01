@@ -3,344 +3,306 @@
 #include <string>
 #include <ctime>
 #include <algorithm>
+#include <iomanip>
 
 using namespace std;
 
-//STRUCT USER & HISTORY
+// ---------------------------------------------------------
+// 1. CLASS UTILITY: Untuk menangani Tanggal
+// ---------------------------------------------------------
+class DateHelper {
+public:
+    static string getToday() {
+        time_t t = time(0);
+        tm *now = localtime(&t);
+        char buf[20];
+        strftime(buf, 20, "%Y-%m-%d", now);
+        return string(buf);
+    }
 
-struct History {
+    static string addDays(string date, int days) {
+        tm t = {};
+        sscanf(date.c_str(), "%d-%d-%d", &t.tm_year, &t.tm_mon, &t.tm_mday);
+        t.tm_year -= 1900;
+        t.tm_mon -= 1;
+
+        time_t base = mktime(&t);
+        base += days * 24 * 3600;
+
+        tm *newT = localtime(&base);
+        char buf[20];
+        strftime(buf, 20, "%Y-%m-%d", newT);
+        return string(buf);
+    }
+};
+
+// ---------------------------------------------------------
+// 2. CLASS DATA: Menangani Struktur Data User & History
+// ---------------------------------------------------------
+struct HistoryLog {
     string tempat;
     string tanggalDonor;
     string nextEligible;
 };
 
-struct User {
+class User {
+private:
     string email;
     string password;
     string nama;
     int usia;
     string golongan;
     string riwayatPenyakit;
+    vector<HistoryLog> historyList;
 
-    vector<History> riwayat;
+public:
+    // Constructor
+    User(string e, string p, string n, int u, string g, string r) 
+        : email(e), password(p), nama(n), usia(u), golongan(g), riwayatPenyakit(r) {}
+
+    // Getters
+    string getEmail() const { return email; }
+    string getNama() const { return nama; }
+    
+    // Validasi Login
+    bool checkCredentials(string inputEmail, string inputPass) {
+        return (email == inputEmail && password == inputPass);
+    }
+
+    // Update Profile
+    void updateProfile(string n, int u, string g, string r) {
+        nama = n;
+        usia = u;
+        golongan = g;
+        riwayatPenyakit = r;
+    }
+
+    // Menambah History Donor
+    void addDonationHistory(string tempat) {
+        string now = DateHelper::getToday();
+        string next = DateHelper::addDays(now, 40); // Asumsi interval 40 hari
+        
+        historyList.push_back({tempat, now, next});
+        
+        cout << "Pendaftaran donor berhasil di " << tempat << "!\n";
+        cout << "Tanggal Donor: " << now << endl;
+        cout << "Boleh donor lagi mulai: " << next << endl;
+    }
+
+    // Menampilkan Info User
+    void showProfile() const {
+        cout << "\n### PROFIL PENGGUNA ###\n";
+        cout << "Nama            : " << nama << endl;
+        cout << "Usia            : " << usia << endl;
+        cout << "Golongan Darah  : " << golongan << endl;
+        cout << "Riwayat Penyakit: " << riwayatPenyakit << endl;
+    }
+
+    // Menampilkan History
+    void showHistory() const {
+        cout << "\n### HISTORY DONOR ###\n";
+        if (historyList.empty()) {
+            cout << "Anda belum pernah donor.\n";
+            return;
+        }
+        for (const auto &h : historyList) {
+            cout << "- " << h.tempat 
+                 << " | Tgl: " << h.tanggalDonor 
+                 << " | Next: " << h.nextEligible << endl;
+        }
+    }
 };
 
-// GLOBAL DATA 
+// ---------------------------------------------------------
+// 3. CLASS CONTROLLER: Menangani Flow Aplikasi
+// ---------------------------------------------------------
+class BloodDonationApp {
+private:
+    vector<User> userDatabase;
+    User* currentUser; // Pointer ke user yang sedang login
 
-vector<User> users;
-User* currentUser = nullptr;
+    // Helper untuk input string dengan spasi
+    string inputString(string prompt) {
+        string val;
+        cout << prompt;
+        getline(cin, val);
+        return val;
+    }
 
-// UTIL FUNCTIONS 
+    void registerUser() {
+        cout << "\n### SIGN UP ###\n";
+        string email, pass, nama, gol, riwayat;
+        int usia;
 
-string today() {
-    time_t t = time(0);
-    tm *now = localtime(&t);
-    char buf[20];
-    strftime(buf, 20, "%Y-%m-%d", now);
-    return string(buf);
-}
+        cout << "Email: "; cin >> email;
+        cout << "Password: "; cin >> pass;
+        cin.ignore(); // Bersihkan buffer
+        nama = inputString("Nama Lengkap: ");
+        cout << "Usia: "; cin >> usia;
+        cout << "Golongan Darah (A+/O-/dst): "; cin >> gol;
+        cin.ignore();
+        riwayat = inputString("Riwayat Penyakit ('-' jika aman): ");
 
-string addDays(string date, int days) {
-    tm t = {};
-    sscanf(date.c_str(), "%d-%d-%d", &t.tm_year, &t.tm_mon, &t.tm_mday);
-    t.tm_year -= 1900;
-    t.tm_mon -= 1;
+        User newUser(email, pass, nama, usia, gol, riwayat);
+        userDatabase.push_back(newUser);
+        cout << "Akun berhasil dibuat! Silakan login.\n";
+    }
 
-    time_t base = mktime(&t);
-    base += days * 24 * 3600;
+    void loginUser() {
+        cout << "\n### LOGIN ###\n";
+        string email, pass;
+        cout << "Email: "; cin >> email;
+        cout << "Password: "; cin >> pass;
 
-    tm *newT = localtime(&base);
-    char buf[20];
-    strftime(buf, 20, "%Y-%m-%d", newT);
-    return string(buf);
-}
-
-User* findUser(string email, string pass) {
-    for (auto &u : users)
-        if (u.email == email && u.password == pass)
-            return &u;
-    return nullptr;
-}
-
-// FITUR 1 : SIGN UP 
-
-void signUp() {
-    cout << "\n### SIGN UP ###\n";
-
-    User u;
-    cout << "Email: ";
-    cin >> u.email;
-    cout << "Password: ";
-    cin >> u.password;
-    cout << "Nama Lengkap: ";
-    cin.ignore();
-    getline(cin, u.nama);
-    cout << "Usia: ";
-    cin >> u.usia;
-    cout << "Golongan Darah (A+/O-/dst): ";
-    cin >> u.golongan;
-    cout << "Riwayat Penyakit ('-' jika tidak ada): ";
-    cin.ignore();
-    getline(cin, u.riwayatPenyakit);
-
-    users.push_back(u);
-
-    cout << "Akun berhasil dibuat!\n";
-}
-
-// FITUR 2 : LOGIN 
-
-void login() {
-    cout << "\n### LOGIN ###\n";
-
-    string email, pass;
-    cout << "Email: ";
-    cin >> email;
-    cout << "Password: ";
-    cin >> pass;
-
-    User* u = findUser(email, pass);
-    if (u == nullptr) {
+        for (auto &u : userDatabase) {
+            if (u.checkCredentials(email, pass)) {
+                currentUser = &u;
+                cout << "Login berhasil! Selamat datang, " << currentUser->getNama() << "\n";
+                return;
+            }
+        }
         cout << "Email atau password salah!\n";
-        return;
     }
 
-    currentUser = u;
-    cout << "Login berhasil! Selamat datang, " << u->nama << "\n";
-}
+    void menuProfile() {
+        int pilih;
+        do {
+            currentUser->showProfile();
+            cout << "\n1. Edit Profil\n2. Kembali\nPilih: ";
+            cin >> pilih;
 
-// FITUR 3: PROFILE
+            if (pilih == 1) {
+                cin.ignore();
+                string n = inputString("Nama Baru: ");
+                int u; cout << "Usia Baru: "; cin >> u;
+                string g; cout << "Golongan Darah Baru: "; cin >> g;
+                cin.ignore();
+                string r = inputString("Riwayat Penyakit Baru: ");
+                
+                currentUser->updateProfile(n, u, g, r);
+                cout << "Profil berhasil diperbarui!\n";
+            }
+        } while (pilih != 2);
+    }
 
-void menuProfile() {
-    int pilih;
-
-    do {
-        cout << "\n### PROFIL ###\n";
-        cout << "Nama: " << currentUser->nama << endl;
-        cout << "Usia: " << currentUser->usia << endl;
-        cout << "Golongan Darah: " << currentUser->golongan << endl;
-        cout << "Riwayat Penyakit: " << currentUser->riwayatPenyakit << endl;
-
-        cout << "\n1. Edit Profil\n";
-        cout << "2. Kembali\n";
-        cout << "Pilih: ";
-        cin >> pilih;
-
-        if (pilih == 1) {
-            cout << "Nama Baru: ";
-            cin.ignore();
-            getline(cin, currentUser->nama);
-
-            cout << "Usia Baru: ";
-            cin >> currentUser->usia;
-
-            cout << "Golongan Darah Baru: ";
-            cin >> currentUser->golongan;
-
-            cout << "Riwayat Penyakit Baru: ";
-            cin.ignore();
-            getline(cin, currentUser->riwayatPenyakit);
-
-            cout << "Profil berhasil diperbarui!\n";
-        }
-
-    } while (pilih != 2);
-}
-
-// FITUR 4: DAFTAR RS 
-
-void daftarRSLangsung(string namaRS) {
-    string now = today();
-    string next = addDays(now, 40);
-
-    currentUser->riwayat.push_back({namaRS, now, next});
-
-    cout << "Pendaftaran donor berhasil di " << namaRS << "!\n";
-    cout << "Tanggal Donor: " << now << endl;
-    cout << "Boleh donor lagi mulai: " << next << endl;
-}
-
-void cariRS() {
-    vector<string> rs = {
-        "RSUD Sardjito",
-        "RS Panti Rapih",
-        "RS Bethesda"
-    };
-
-    vector<string> kontak = {
-        "0812-1111-2222",
-        "0813-3333-4444",
-        "0812-5555-6666"
-    };
-
-    int pilih;
-
-    while (true) {
-        cout << "\n### CARI RUMAH SAKIT ###\n";
-        for (int i = 0; i < rs.size(); i++)
-            cout << i+1 << ". " << rs[i] << endl;
-        cout << "4. Kembali\n";
-        cout << "Pilih: ";
-        cin >> pilih;
-
-        if (pilih == 4) break;
-        if (pilih < 1 || pilih > 3) {
-            cout << "Pilihan tidak valid!\n";
-            continue;
-        }
-
-        int idx = pilih - 1;
-
-        cout << "\n### " << rs[idx] << " ###\n";
+    void processDonation(string locationName, string contactInfo) {
+        cout << "\n### " << locationName << " ###\n";
         cout << "1. Daftar Donor Sekarang\n";
-        cout << "2. Kontak Rumah Sakit\n";
+        cout << "2. Kontak Panitia/RS\n";
         cout << "3. Kembali\n";
         cout << "Pilih: ";
         int sub;
         cin >> sub;
 
-        if (sub == 1) daftarRSLangsung(rs[idx]);
-        else if (sub == 2)
-            cout << "Anda dapat menghubungi: " << kontak[idx] << "\n";
-        else if (sub == 3)
-            continue;
-        else
-            cout << "Pilihan tidak valid!\n";
+        if (sub == 1) {
+            currentUser->addDonationHistory(locationName);
+        } else if (sub == 2) {
+            cout << "Hubungi: " << contactInfo << "\n";
+        }
     }
-}
 
-// FITUR 5: EVENT DONOR 
+    void menuListLocations(bool isHospital) {
+        vector<pair<string, string>> locations;
+        string title;
 
-void daftarEventLangsung(string event) {
-    string now = today();
-    string next = addDays(now, 40);
-
-    currentUser->riwayat.push_back({event, now, next});
-
-    cout << "Pendaftaran donor berhasil untuk event '" << event << "'!\n";
-    cout << "Tanggal Donor: " << now << endl;
-    cout << "Boleh donor lagi mulai: " << next << endl;
-}
-
-void eventDonor() {
-    vector<string> event = {
-        "Donor Darah Kampus UGM",
-        "Donor Darah SMAN 1",
-        "Donor Darah PMI Kota"
-    };
-
-    vector<string> kontak = {
-        "0896-2222-1111",
-        "0895-4444-3333",
-        "0897-6666-5555"
-    };
-
-    int pilih;
-
-    while (true) {
-        cout << "\n### EVENT DONOR ###\n";
-        for (int i = 0; i < event.size(); i++)
-            cout << i+1 << ". " << event[i] << endl;
-        cout << "4. Kembali\n";
-        cout << "Pilih: ";
-        cin >> pilih;
-
-        if (pilih == 4) break;
-        if (pilih < 1 || pilih > 3) {
-            cout << "Pilihan tidak valid!\n";
-            continue;
+        if (isHospital) {
+            title = "CARI RUMAH SAKIT";
+            locations = {
+                {"RSUD Sardjito", "0812-1111-2222"},
+                {"RS Panti Rapih", "0813-3333-4444"},
+                {"RS Bethesda", "0812-5555-6666"}
+            };
+        } else {
+            title = "EVENT DONOR";
+            locations = {
+                {"Donor Darah Kampus UGM", "0896-2222-1111"},
+                {"Donor Darah SMAN 1", "0895-4444-3333"},
+                {"Donor Darah PMI Kota", "0897-6666-5555"}
+            };
         }
 
-        int idx = pilih - 1;
+        while (true) {
+            cout << "\n### " << title << " ###\n";
+            for (size_t i = 0; i < locations.size(); ++i) {
+                cout << i + 1 << ". " << locations[i].first << endl;
+            }
+            cout << "4. Kembali\n";
+            cout << "Pilih: ";
+            int pilih;
+            cin >> pilih;
 
-        cout << "\n### " << event[idx] << " ###\n";
-        cout << "1. Daftar Donor Sekarang\n";
-        cout << "2. Kontak Panitia \n";
-        cout << "3. Kembali\n";
-        cout << "Pilih: ";
-        int sub;
-        cin >> sub;
-
-        if (sub == 1) daftarEventLangsung(event[idx]);
-        else if (sub == 2)
-            cout << "Anda dapat menghubungi: " << kontak[idx] << "\n";
-        else if (sub == 3)
-            continue;
-        else
-            cout << "Pilihan tidak valid!\n";
-    }
-}
-
-// FITUR 6: HISTORY
-
-void lihatHistory() {
-    cout << "\n### HISTORY DONOR ###\n";
-
-    if (currentUser->riwayat.empty()) {
-        cout << "Anda belum pernah donor.\n";
-        return;
-    }
-
-    for (auto &h : currentUser->riwayat) {
-        cout << "- " << h.tempat
-             << " | Donor pada tanggal: " << h.tanggalDonor
-             << " | Boleh donor lagi tanggal: " << h.nextEligible << endl;
-    }
-}
-
-//  MENU REGISTERED
-
-void menuRegistered() {
-    int pilih;
-    do {
-        cout << "\n### MENU UTAMA ###\n";
-        cout << "Apa yang ingin kamu lakukan hari ini?\n";
-        cout << "1. Lihat Profil\n";
-        cout << "2. Cari RS (Daftar Donor)\n";
-        cout << "3. Cari Event Donor\n";
-        cout << "4. History Donor\n";
-        cout << "5. Logout\n";
-        cout << "Pilih: ";
-        cin >> pilih;
-
-        if (pilih == 1) menuProfile();
-        else if (pilih == 2) cariRS();
-        else if (pilih == 3) eventDonor();
-        else if (pilih == 4) lihatHistory();
-        else if (pilih == 5) {
-            cout << "\nSehat selalu wahai pejuang darah!\n";
-            currentUser = nullptr;
+            if (pilih == 4) break;
+            if (pilih >= 1 && pilih <= 3) {
+                processDonation(locations[pilih-1].first, locations[pilih-1].second);
+            } else {
+                cout << "Pilihan tidak valid!\n";
+            }
         }
-    } while (pilih != 5);
-}
+    }
 
-//  MAIN MENU
+    void dashboardUser() {
+        int pilih;
+        do {
+            cout << "\n--- DASHBOARD (" << currentUser->getNama() << ") ---\n";
+            cout << "1. Lihat Profil\n";
+            cout << "2. Cari RS (Daftar Donor)\n";
+            cout << "3. Cari Event Donor\n";
+            cout << "4. History Donor\n";
+            cout << "5. Logout\n";
+            cout << "Pilih: ";
+            cin >> pilih;
 
+            switch(pilih) {
+                case 1: menuProfile(); break;
+                case 2: menuListLocations(true); break; // true for RS
+                case 3: menuListLocations(false); break; // false for Event
+                case 4: currentUser->showHistory(); break;
+                case 5: 
+                    cout << "Logout berhasil. Sehat selalu!\n";
+                    currentUser = nullptr;
+                    break;
+                default: cout << "Pilihan tidak valid!\n";
+            }
+        } while (pilih != 5);
+    }
+
+public:
+    BloodDonationApp() {
+        currentUser = nullptr;
+    }
+
+    void run() {
+        int pilih;
+        while (true) {
+            cout << "\n=== APLIKASI DONOR DARAH ===\n";
+            cout << "1. Sign Up\n";
+            cout << "2. Login\n";
+            cout << "3. Keluar\n";
+            cout << "Pilih: ";
+            cin >> pilih;
+
+            if (pilih == 1) {
+                registerUser();
+            } else if (pilih == 2) {
+                loginUser();
+                if (currentUser != nullptr) {
+                    dashboardUser();
+                }
+            } else if (pilih == 3) {
+                cout << "Terima kasih!\n";
+                break;
+            } else {
+                cout << "Pilihan tidak valid!\n";
+            }
+        }
+    }
+};
+
+// ---------------------------------------------------------
+// 4. MAIN PROGRAM
+// ---------------------------------------------------------
 int main() {
-    int pilih;
-
-    while (true) {
-        cout << "\nSELAMAT DATANG di APLIKASI DONOR DARAH\n";
-        cout << "\nSilakan Sign Up jika belum memiliki akun atau Login jika sudah memilki akun\n";
-        cout << "\n";
-        cout << "1. Sign Up\n";
-        cout << "2. Login\n";
-        cout << "3. Keluar\n";
-        cout << "Pilih: ";
-        cin >> pilih;
-
-        if (pilih == 1) signUp();
-        else if (pilih == 2) {
-            login();
-            if (currentUser != nullptr) menuRegistered();
-        }
-        else if (pilih == 3) {
-            cout << "Terima kasih sudah menggunakan aplikasi ini!!!\n";
-            break;
-        }
-        else
-            cout << "Pilihan tidak valid!\n";
-    }
-
+    BloodDonationApp app;
+    app.run();
     return 0;
 }
